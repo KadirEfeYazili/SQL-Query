@@ -1,0 +1,171 @@
+CREATE DATABASE IF NOT EXISTS ParcaStokSistemi;
+USE ParcaStokSistemi;
+
+DROP TABLE IF EXISTS Parcalar;
+CREATE TABLE Parcalar (
+    ParcaID INT PRIMARY KEY AUTO_INCREMENT,
+    ParcaAdi VARCHAR(50),
+    Kategori VARCHAR(50),
+    Fiyat DECIMAL(10, 2),
+    StokMiktari INT,
+    MinStokSeviyesi INT
+);
+
+DROP TABLE IF EXISTS Tedarikciler;
+CREATE TABLE Tedarikciler (
+    TedarikciID INT PRIMARY KEY AUTO_INCREMENT,
+    TedarikciAdi VARCHAR(50),
+    Telefon VARCHAR(20),
+    Adres VARCHAR(100),
+    Sehir VARCHAR(50),
+    Email VARCHAR(50)
+);
+
+DROP TABLE IF EXISTS Siparisler;
+CREATE TABLE Siparisler (
+    SiparisID INT PRIMARY KEY AUTO_INCREMENT,
+    TedarikciID INT,
+    SiparisTarihi DATE,
+    TahminiTeslimTarihi DATE,
+    SiparisDurumu VARCHAR(20),
+    FOREIGN KEY (TedarikciID) REFERENCES Tedarikciler(TedarikciID)
+);
+
+DROP TABLE IF EXISTS SiparisDetaylari;
+CREATE TABLE SiparisDetaylari (
+    DetayID INT PRIMARY KEY AUTO_INCREMENT,
+    SiparisID INT,
+    ParcaID INT,
+    Miktar INT,
+    FOREIGN KEY (SiparisID) REFERENCES Siparisler(SiparisID),
+    FOREIGN KEY (ParcaID) REFERENCES Parcalar(ParcaID)
+);
+
+INSERT INTO Parcalar (ParcaAdi, Kategori, Fiyat, StokMiktari, MinStokSeviyesi) VALUES
+('Motor', 'Elektronik', 150.00, 50, 5),
+('Vites Kutusu', 'Mekanik', 500.00, 20, 2),
+('Fren Balatası', 'Mekanik', 100.00, 100, 10),
+('Ayna', 'Gövde', 75.00, 30, 3);
+
+INSERT INTO Tedarikciler (TedarikciAdi, Telefon, Adres, Sehir, Email) VALUES
+('ABC Elektronik', '555-1234', '123 Elektronik Sokak', 'Istanbul', 'abc@tedarik.com'),
+('XYZ Otomotiv', '555-5678', '456 Otomotiv Caddesi', 'Ankara', 'xyz@otomotiv.com');
+
+INSERT INTO Siparisler (TedarikciID, SiparisTarihi, TahminiTeslimTarihi, SiparisDurumu) VALUES
+(1, '2024-10-15', '2024-10-20', 'Beklemede'),
+(2, '2024-11-01', '2024-11-05', 'Teslim Edildi');
+
+INSERT INTO SiparisDetaylari (SiparisID, ParcaID, Miktar) VALUES
+(1, 1, 10),
+(1, 2, 20),
+(2, 3, 5);
+
+
+-- 1. Tüm parçaları listeleme (DISTINCT ile benzersiz parça adı listeleme)
+SELECT DISTINCT ParcaAdi FROM Parcalar;
+
+-- 2. Stok seviyesi 10'dan az olan parçaları listeleme (HAVING ile filtreleme)
+SELECT Kategori, AVG(StokMiktari) AS OrtalamaStok
+FROM Parcalar
+GROUP BY Kategori
+HAVING OrtalamaStok < 10;
+
+-- 3. Belirli bir tedarikçinin yaptığı siparişleri listeleme (INNER JOIN ile detaylı listeleme)
+SELECT SiparisID, TedarikciID, SiparisTarihi
+FROM Siparisler
+INNER JOIN Tedarikciler ON Siparisler.TedarikciID = Tedarikciler.TedarikciID
+WHERE Tedarikciler.TedarikciAdi = 'ABC Elektronik';
+
+-- 4. Sipariş detaylarını sipariş ID'ye göre listeleme (LEFT JOIN kullanarak tüm sipariş detaylarını listeleme)
+SELECT SiparisID, ParcaAdi, Miktar
+FROM SiparisDetaylari
+LEFT JOIN Parcalar ON SiparisDetaylari.ParcaID = Parcalar.ParcaID
+WHERE SiparisID = 1;
+
+-- 5. Stokta yeterli olmayan parçaları bulma (SUBQUERY kullanarak min stok seviyesini karşılamayan parçaları listeleme)
+SELECT * FROM Parcalar
+WHERE StokMiktari < (SELECT MinStokSeviyesi FROM Parcalar WHERE ParcaID = Parcalar.ParcaID);
+
+-- 6. Siparişlerin toplam maliyetini hesaplama (JOIN ve SUM kullanarak toplam maliyet hesaplama)
+SELECT SiparisID, SUM(Parcalar.Fiyat * SiparisDetaylari.Miktar) AS ToplamMaliyet
+FROM SiparisDetaylari
+JOIN Parcalar ON SiparisDetaylari.ParcaID = Parcalar.ParcaID
+GROUP BY SiparisID;
+
+-- 7. En çok sipariş edilen parçayı bulma (ORDER BY ve LIMIT ile en çok sipariş edilen parça)
+SELECT ParcaID, SUM(Miktar) AS ToplamSiparis
+FROM SiparisDetaylari
+GROUP BY ParcaID
+ORDER BY ToplamSiparis DESC
+LIMIT 1;
+
+-- 8. Fiyatı en yüksek olan parçayı listeleme (ORDER BY kullanarak fiyat bazlı sıralama)
+SELECT * FROM Parcalar ORDER BY Fiyat DESC LIMIT 1;
+
+-- 9. En düşük stok seviyesine sahip parçayı bulma (MIN fonksiyonu ile en düşük stoklu parça)
+SELECT * FROM Parcalar WHERE StokMiktari = (SELECT MIN(StokMiktari) FROM Parcalar);
+
+-- 10. Belirli bir tarihten sonraki siparişleri listeleme (DATE fonksiyonu ile tarih karşılaştırma)
+SELECT * FROM Siparisler WHERE SiparisTarihi > '2024-01-01';
+
+-- 11. Parça kategorilerine göre stok toplamını bulma (GROUP BY ile kategori bazında toplam stok)
+SELECT Kategori, SUM(StokMiktari) AS ToplamStok
+FROM Parcalar
+GROUP BY Kategori;
+
+-- 12. Siparişlerin tahmini teslim tarihine göre sıralama (ORDER BY kullanarak sıralama)
+SELECT * FROM Siparisler ORDER BY TahminiTeslimTarihi ASC;
+
+-- 13. Tedarikçi bilgileri ile siparişleri listeleme (JOIN ile tedarikçi bilgileri ile birleştirme)
+SELECT SiparisID, Tedarikciler.TedarikciAdi, SiparisDurumu
+FROM Siparisler
+JOIN Tedarikciler ON Siparisler.TedarikciID = Tedarikciler.TedarikciID;
+
+-- 14. Parça adı ve fiyat bilgilerini listeleme (WHERE ile belirli fiyat aralığında parça listeleme)
+SELECT ParcaAdi, Fiyat FROM Parcalar WHERE Fiyat > 100;
+
+-- 15. Stokta 100'den fazla olan parçaları listeleme (WHERE ile stok kontrolü)
+SELECT * FROM Parcalar WHERE StokMiktari > 100;
+
+-- 16. Sipariş durumu "Beklemede" olanları listeleme (WHERE ile filtreleme)
+SELECT * FROM Siparisler WHERE SiparisDurumu = 'Beklemede';
+
+-- 17. Parça kategorilerine göre ortalama fiyatı hesaplama (AVG kullanarak ortalama hesaplama)
+SELECT Kategori, AVG(Fiyat) AS OrtalamaFiyat
+FROM Parcalar
+GROUP BY Kategori;
+
+-- 18. Tedarikçilerin şehirlerine göre sipariş sayısını bulma (COUNT fonksiyonu ile şehir bazında sipariş sayısı)
+SELECT Sehir, COUNT(SiparisID) AS SiparisSayisi
+FROM Siparisler
+JOIN Tedarikciler ON Siparisler.TedarikciID = Tedarikciler.TedarikciID
+GROUP BY Sehir;
+
+-- 19. En son yapılan siparişi bulma (ORDER BY ve LIMIT ile en son siparişi listeleme)
+SELECT * FROM Siparisler ORDER BY SiparisTarihi DESC LIMIT 1;
+
+-- 20. Her siparişin içerdiği toplam parça sayısını bulma (SUM fonksiyonu ile parça sayısını toplama)
+SELECT SiparisID, SUM(Miktar) AS ToplamParca
+FROM SiparisDetaylari
+GROUP BY SiparisID;
+
+-- 21. Sipariş detaylarında kullanılan parçaları listeleme (DISTINCT ile benzersiz parçalar)
+SELECT DISTINCT ParcaID FROM SiparisDetaylari;
+
+-- 22. Tedarikçilerin email adreslerini listeleme (SELECT ile sadece email sütunu)
+SELECT Email FROM Tedarikciler;
+
+-- 23. Stok miktarı 0 olan parçaları listeleme (WHERE ile stok miktarı sıfır olanlar)
+SELECT * FROM Parcalar WHERE StokMiktari = 0;
+
+-- 24. Fiyatı 100 TL'den düşük olan parçaları listeleme (WHERE ile fiyat karşılaştırması)
+SELECT * FROM Parcalar WHERE Fiyat < 100;
+
+-- 25. En fazla parça sipariş eden tedarikçiyi bulma (JOIN ve SUM ile tedarikçi bazında toplam sipariş miktarı)
+SELECT TedarikciAdi, SUM(SiparisDetaylari.Miktar) AS ToplamParca
+FROM Siparisler
+JOIN Tedarikciler ON Siparisler.TedarikciID = Tedarikciler.TedarikciID
+JOIN SiparisDetaylari ON Siparisler.SiparisID = SiparisDetaylari.SiparisID
+GROUP BY TedarikciAdi
+ORDER BY ToplamParca DESC
+LIMIT 1;
